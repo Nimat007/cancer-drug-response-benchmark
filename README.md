@@ -1,46 +1,44 @@
-# Can Cancer-Cell Transcriptomes Predict Compound Response? A Reproducible Benchmark
+# Transcriptome-Based Drug Response Benchmark
 
-## Overview and Motivation
-This project evaluates whether baseline gene-expression profiles can accurately predict cancer cell-line responses to compounds. In computational oncology, machine learning models often report artificially high predictive accuracy due to undetected data leakage (e.g., tissue lineage overlap) or uncorrected experimental batch effects. 
+## Project Status: Work in Progress (Preliminary Results)
+An exploratory benchmark of transcriptome-based drug-response prediction under cancer-lineage holdout.
 
-This repository establishes a highly rigorous, reproducible baseline benchmark prioritizing experimental data integrity over algorithm complexity. It demonstrates that for a high-variance feasibility target, complex non-linear models (Random Forest) trained on baseline transcriptomics fail to outperform a simple mean-prediction dummy baseline when generalizing to unseen tissue lineages.
+### Research Question
+*Can baseline gene-expression profiles predict drug response in cancer cell lines when tested on cancer lineages not seen during training?*
 
-## Data Provenance
-* **Transcriptomics:** DepMap Public 25Q2 (`OmicsExpressionProteinCodingGenesTPMLogp1.csv`, `Model.csv`).
-* **Drug Response:** PRISM Repurposing 19Q4 (`secondary-screen-dose-response-curve-parameters.csv`).
-* **Identifier Mapping:** Identifiers map directly via the Broad Institute's standardized `ModelID` to the PRISM `depmap_id`. The intersection yields exactly 477 overlapping cell lines.
+### Methodology & Validation Design
+- **Expression Data:** DepMap protein-coding gene expression (TPM+logp1).
+- **Drug Response:** PRISM Repurposing 19Q4 AUCs (`prism_auc_matrix_resolved.csv`).
+- **Cross-Validation:** Evaluated using five-fold `GroupKFold` splitting by `OncotreeLineage` (`scripts/full_benchmark.py`), testing generalization to held-out lineages.
+- **Models:** Mean Baseline, Ridge Regression, Random Forest (100 estimators).
+- **Feature Selection:** Top 1,000 highest-variance genes fitted on outer-training splits inside a scikit-learn `Pipeline`.
 
-## Preprocessing and Experimental Quality Control
-The PRISM 19Q4 dataset contains ~45k technical/biological replicate observations. Blindly aggregating these replicates introduces batch-effect noise.
-* **MTS010 Priority Rule:** Per PRISM documentation, `MTS010` screens represent corrected "technical redos." Our processing pipeline rigorously prioritizes `MTS010` records over older screens, rescuing 37,474 high-quality pairs.
-* **Ambiguity Quarantine:** 7,515 duplicated pairs (solely collisions between older `HTS002` and `MTS006` screens) lacked a documented priority rule. These were explicitly dropped from the target matrix to ensure absolute experimental integrity.
+### Data Preprocessing & Duplicate Resolution
+The `prism_auc_matrix_resolved.csv` matrix was generated using a conservative exclusion policy prioritizing the `MTS010` screen ID and excluding ambiguous duplicate pairs (`scripts/resolve_prism_replicates.py` and `scripts/make_matrix.py`).
 
-## Target Selection
-To establish a benchmark, a single compound was selected dynamically using the following criteria:
-1. Maximum number of valid, non-null tested cell lines (to maximize training data).
-2. Highest variance in Area Under the Curve (AUC) response (to ensure the model has a dynamic range to predict).
+### Preliminary Results
+The benchmark was executed across a 1,198-compound eligible panel. The results are precomputed in `full_benchmark_results.csv`.
 
-**Selected Target:** `BRD-K13662825-001-07-5` (477 valid responses). 
-*Note: Because maximizing variance favors a specific type of prediction problem, this compound serves as a "feasibility target" to test the pipeline's mechanics, rather than a universally representative drug.*
+**Summary Statistics:**
+- Mean Baseline OOF MAE: ~0.1229
+- Mean Ridge OOF MAE: ~0.1246
+- Mean Random Forest OOF MAE: ~0.1247
+- Ridge beat baseline MAE: 32.3% of compounds.
+- RF beat baseline MAE: 33.1% of compounds.
 
-## Cross-Validation Design & Leakage Prevention
-To ensure predictions generalize to novel biology rather than memorizing tissue-specific signatures, the pipeline utilizes a **GroupKFold (n=5)** cross-validation strategy grouped by `OncotreeLineage` (22 distinct tissue types).
-* **Zero Lineage Leakage:** Audits confirm the intersection of training and testing lineages across all 5 folds is mathematically zero.
-* **Nested Feature Selection:** Variance thresholding (top 1,000 highly variable genes) is calculated strictly *inside* the training fold before transforming the test fold.
+![Out-of-Fold MAE Delta and Spearman Correlation Distributions](results_distribution.png)
 
-## Benchmark Results (Average across 5 folds)
-| Model | Mean Absolute Error (MAE) |
-| :--- | :--- |
-| **Dummy Baseline (Train Mean)** | `0.0929 ± 0.0090` |
-| **Ridge Regression (alpha=1.0)** | `0.1246 ± 0.0098` |
-| **Random Forest (100 estimators)** | `0.0957 ± 0.0097` |
+**Scientific Interpretation:**
+The tested configurations generally did not improve MAE over the mean baseline under the reported cross-lineage evaluation. While a mean Random Forest Spearman correlation of ~0.103 was observed, this suggests a weak average rank association and does not necessarily indicate a practically useful or statistically significant ranking model. These preliminary findings highlight the difficulty of cross-lineage generalization from transcriptomics alone using these specific baseline models and validation structures, motivating further investigation comparing cross-lineage vs. within-lineage prediction and alternative feature-selection strategies.
 
-## Limitations and Conclusion
-The strict lineage-grouped evaluation confirms that baseline transcriptomics alone (specifically the top 1,000 highly variable genes) cannot reliably predict this compound's response better than guessing the mean of the training fold. The Random Forest's inability to beat the dummy baseline is a genuine biological limitation of predicting complex compound efficacy without incorporating multi-omics, molecular descriptors, or non-linear batch effect corrections.
+### Known Limitations & Future Work
+1. **Ridge Tuning Metric:** In the precomputed v1 run (`full_benchmark_results.csv`), Ridge hyperparameter selection (`GridSearchCV` in `scripts/full_benchmark.py`) defaulted to $R^2$, whereas MAE is the main reported comparison metric. A future MAE-tuned run (`scoring='neg_mean_absolute_error'`, outlined in `scripts/future_benchmark_template.py`) is needed to assess whether this mismatch affects the results.
+2. **Resume Status Check:** In `scripts/full_benchmark.py`, the resume logic checks for `compound_id` presence without filtering by `status == 'Completed'`. Although all 1,198 compounds completed with 0 failures in v1, `scripts/future_benchmark_template.py` updates this check for future runs.
+3. **Raw Data Availability:** Large raw source files (DepMap expression matrix, raw PRISM curve parameters, and `Model.csv`) are excluded from version control due to file-size limits and must be placed in `data/raw/` to re-execute the scripts from scratch.
 
-## Reproduction Instructions
-Due to file size limits, raw datasets are excluded from this repository.
-1. Clone this repository and install dependencies: `pip install -r requirements.txt`
-2. Download the DepMap 25Q2 and PRISM 19Q4 datasets linked in `data/README.md` and place them in the `data/raw/` directory.
-3. Resolve replicates and generate the target matrix: `python scripts/resolve_prism_replicates.py`
-4. Run the cross-validation benchmark: `python scripts/group_cv_benchmark.py`
+### Repository Manifest
+- `README.md`: Project overview, methodology, preliminary results, and limitations.
+- `full_benchmark_results.csv`: Preserved 1,198-compound v1 out-of-fold benchmark results.
+- `prism_auc_matrix_resolved.csv`: Resolved PRISM response matrix (480 cell lines × 1,502 compounds).
+- `results_distribution.png`: Summary visualization of OOF MAE deltas and Random Forest Spearman correlations.
+- `scripts/`: Complete collection of data auditing, replicate resolution (`resolve_prism_replicates.py`), model prototyping, benchmark execution (`full_benchmark.py`), and future v2 template (`future_benchmark_template.py`) scripts.
