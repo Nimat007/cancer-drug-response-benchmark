@@ -6,6 +6,12 @@ An exploratory benchmark of transcriptome-based drug-response prediction under c
 ### Research Question
 *Can baseline gene-expression profiles predict drug response in cancer cell lines when tested on cancer lineages not seen during training?*
 
+### Scientific Inspiration & Literature Context
+This exploratory benchmark is inspired by foundational pharmacogenomic screening studies and methodological critiques of machine learning in precision oncology:
+- **High-Throughput Chemical Perturbation (PRISM):** Inspired by Corsello et al. (*Nature Cancer*, 2020), who demonstrated that pooled barcoded cell-line screening (PRISM Repurposing) can uncover non-oncology compound sensitivities coupled to baseline transcriptomic features (such as *PDE3A* expression predicting DNMDP/tepoxalin sensitivity).
+- **Large-Scale Cancer Dependency & Expression Profiling (DepMap):** Built upon the Broad Institute Cancer Dependency Map framework (Tsherniak et al., *Cell*, 2017; Ghandi et al., *Nature*, 2019), utilizing standardized protein-coding RNA-seq profiles to model functional vulnerabilities across diverse cancer models.
+- **Tissue Lineage as a Confounder in Drug-Response Prediction:** Motivated by methodological evaluations in pharmacogenomics showing that standard random cross-validation often yields overly optimistic performance because models memorize tissue-of-origin transcriptional signatures rather than compound-specific mechanisms. To test true out-of-distribution generalization, this project implements strict cancer-lineage holdout (`GroupKFold` by `OncotreeLineage`) against a naive training-fold mean baseline.
+
 ### Methodology & Validation Design
 - **Expression Data:** DepMap protein-coding gene expression (TPM+logp1).
 - **Drug Response:** PRISM Repurposing 19Q4 AUCs (`prism_auc_matrix_resolved.csv`).
