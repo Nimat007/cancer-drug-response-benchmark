@@ -1,0 +1,41 @@
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error
+from sklearn.linear_model import Ridge
+
+print("Loading datasets...")
+expr = pd.read_csv(r"data\raw\OmicsExpressionProteinCodingGenesTPMLogp1.csv", index_col=0)
+prism = pd.read_csv(r"data\raw\prism_auc_matrix.csv", index_col=0)
+
+# 1. Match overlap
+overlap = expr.index.intersection(prism.index)
+target_compound = prism.columns[0]
+y = prism.loc[overlap, target_compound].dropna()
+X = expr.loc[y.index]
+
+# 2. Split data
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 3. Feature Selection: Top 1000 genes by variance (TRAIN only to prevent leakage)
+print("Selecting top 1000 highly variable genes (on training data)...")
+top_genes = X_train.var().nlargest(1000).index
+X_train_selected = X_train[top_genes]
+X_test_selected = X_test[top_genes]
+
+# 4. Train Ridge Regression
+print("Training Ridge Regression model...")
+model = Ridge(alpha=1.0)
+model.fit(X_train_selected, y_train)
+
+# 5. Predict and Evaluate
+y_pred = model.predict(X_test_selected)
+mae_baseline = mean_absolute_error(y_test, [y_train.mean()] * len(y_test))
+mae_ridge = mean_absolute_error(y_test, y_pred)
+pearson_corr = np.corrcoef(y_test, y_pred)[0, 1]
+
+print("\n--- Model Results ---")
+print(f"Compound: {target_compound}")
+print(f"Baseline MAE: {mae_baseline:.4f}")
+print(f"Ridge MAE:    {mae_ridge:.4f}")
+print(f"Pearson Correlation: {pearson_corr:.4f}")
