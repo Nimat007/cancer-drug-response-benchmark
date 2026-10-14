@@ -7,10 +7,12 @@ An exploratory benchmark of transcriptome-based drug-response prediction under c
 *Can baseline gene-expression profiles predict drug response in cancer cell lines when tested on cancer lineages not seen during training?*
 
 ### Scientific Inspiration & Literature Context
-This exploratory benchmark is inspired by foundational pharmacogenomic screening studies and methodological critiques of machine learning in precision oncology:
-- **High-Throughput Chemical Perturbation (PRISM):** Inspired by Corsello et al. (*Nature Cancer*, 2020), who demonstrated that pooled barcoded cell-line screening (PRISM Repurposing) can uncover non-oncology compound sensitivities coupled to baseline transcriptomic features (such as *PDE3A* expression predicting DNMDP/tepoxalin sensitivity).
-- **Large-Scale Cancer Dependency & Expression Profiling (DepMap):** Built upon the Broad Institute Cancer Dependency Map framework (Tsherniak et al., *Cell*, 2017; Ghandi et al., *Nature*, 2019), utilizing standardized protein-coding RNA-seq profiles to model functional vulnerabilities across diverse cancer models.
-- **Tissue Lineage as a Confounder in Drug-Response Prediction:** Motivated by methodological evaluations in pharmacogenomics showing that standard random cross-validation often yields overly optimistic performance because models memorize tissue-of-origin transcriptional signatures rather than compound-specific mechanisms. To test true out-of-distribution generalization, this project implements strict cancer-lineage holdout (`GroupKFold` by `OncotreeLineage`) against a naive training-fold mean baseline.
+This exploratory benchmark is motivated by research on the generalizability and rigorous evaluation of transcriptome-based drug-response prediction:
+- **Methodological guidance for gene-expression-based prediction:** *Drug sensitivity prediction from cell line-based pharmacogenomics data: guidelines for developing machine learning models* (2021) examines methodological choices in drug-sensitivity prediction, including validation strategies, tissue-related effects, and performance assessment. This work motivates careful evaluation of whether transcriptomic models generalize beyond familiar biological contexts.
+- **Generalization beyond a single screening dataset:** *A cross-study analysis of drug response prediction in cancer cell lines* (2021) compares drug-response prediction across multiple pharmacogenomic screening datasets and highlights limitations in transferring predictive performance between studies. Although cross-study transfer differs from the present experiment, it provides a broader rationale for testing generalization under distribution shift.
+- **Contemporary benchmarking context:** Partin et al. (2026), *Benchmarking community drug response prediction models: datasets, models, tools, and metrics for cross-dataset generalization analysis*, further examines the reproducibility and generalizability of drug-response prediction models across datasets.
+
+**Implementation in this project:** Motivated by these methodological questions, I developed an exploratory benchmark using baseline gene-expression profiles and PRISM drug-response measurements. Rather than reproducing the cited studies, this project evaluates Ridge Regression and Random Forest against a training-fold mean baseline under five-fold cancer-lineage holdout (`GroupKFold` by `OncotreeLineage`). The aim is to investigate how these baseline models perform on held-out lineages and to document their limitations transparently.
 
 ### Methodology & Validation Design
 - **Expression Data:** DepMap protein-coding gene expression (TPM+logp1).
@@ -43,8 +45,8 @@ The tested configurations generally did not improve MAE over the mean baseline u
 3. **Raw Data Availability:** Large raw source files (DepMap expression matrix, raw PRISM curve parameters, and `Model.csv`) are excluded from version control due to file-size limits and must be placed in `data/raw/` to re-execute the scripts from scratch.
 
 ### Repository Manifest
-- `README.md`: Project overview, methodology, preliminary results, and limitations.
+- `README.md`: Project overview, scientific context, preliminary results, and limitations.
 - `full_benchmark_results.csv`: Preserved 1,198-compound v1 out-of-fold benchmark results.
 - `prism_auc_matrix_resolved.csv`: Resolved PRISM response matrix (480 cell lines × 1,502 compounds).
 - `results_distribution.png`: Summary visualization of OOF MAE deltas and Random Forest Spearman correlations.
-- `scripts/`: Complete collection of data auditing, replicate resolution (`resolve_prism_replicates.py`), model prototyping, benchmark execution (`full_benchmark.py`), and future v2 template (`future_benchmark_template.py`) scripts.
+- `scripts/`: Complete collection of data auditing, replicate resolution (`scripts/resolve_prism_replicates.py`), matrix building (`scripts/make_matrix.py`), benchmark execution (`scripts/full_benchmark.py`), and future v2 template (`scripts/future_benchmark_template.py`) scripts.
