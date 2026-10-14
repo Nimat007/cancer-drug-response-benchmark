@@ -1,0 +1,9 @@
+data/
+results/
+figures/
+tests/
+.pytest_cache/
+.venv/
+venv/
+__pycache__/
+*.pyc
